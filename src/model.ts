@@ -1,6 +1,15 @@
 import ort from "onnxruntime-web";
-import { ONNXWrapper } from "./ONNXWrapper";
+import { IONNXSettings, ONNXWrapper } from "./ONNXWrapper";
 import { RawInferenceResult } from "./Gliner";
+
+export interface ModelInputSettings {
+  includeInputIds?: boolean;
+  includeAttentionMask?: boolean;
+  includeWordsMask?: boolean;
+  includeTextLengths?: boolean;
+  includeSpanIdx?: boolean;
+  includeSpanMask?: boolean;
+}
 
 export class Model {
   constructor(
@@ -12,6 +21,10 @@ export class Model {
 
   async initialize(): Promise<void> {
     await this.onnxWrapper.init();
+  }
+
+  async release() {
+    await this.onnxWrapper.release();
   }
 }
 
@@ -33,7 +46,7 @@ export class SpanModel extends Model {
     let span_idx: ort.Tensor = createTensor(batch.spanIdxs, [batch_size, num_spans, 2]);
     let span_mask: ort.Tensor = createTensor(batch.spanMasks, [batch_size, num_spans], "bool");
 
-    const feeds: Record<string, ort.Tensor> = {
+    return {
       input_ids: input_ids,
       attention_mask: attention_mask,
       words_mask: words_mask,
@@ -41,8 +54,38 @@ export class SpanModel extends Model {
       span_idx: span_idx,
       span_mask: span_mask,
     };
+  }
 
-    return feeds;
+  private processFeedsWithConfig(
+    feeds: Record<string, ort.Tensor>,
+    config: ModelInputSettings,
+  ): Record<string, ort.Tensor> {
+    const finalFeeds: Record<string, ort.Tensor> = {};
+    if (config.includeInputIds) {
+      finalFeeds.input_ids = feeds.input_ids;
+    }
+
+    if (config.includeAttentionMask) {
+      finalFeeds.attention_mask = feeds.attention_mask;
+    }
+
+    if (config.includeSpanIdx) {
+      finalFeeds.span_idx = feeds.span_idx;
+    }
+
+    if (config.includeSpanMask) {
+      finalFeeds.span_mask = feeds.span_mask;
+    }
+
+    if (config.includeWordsMask) {
+      finalFeeds.words_mask = feeds.words_mask;
+    }
+
+    if (config.includeTextLengths) {
+      finalFeeds.text_lengths = feeds.text_lengths;
+    }
+
+    return finalFeeds;
   }
 
   async inference(
@@ -51,11 +94,14 @@ export class SpanModel extends Model {
     flatNer: boolean = false,
     threshold: number = 0.5,
     multiLabel: boolean = false,
+    inputConfig: ModelInputSettings = {},
+    options: IONNXSettings["runOptions"] = {},
   ): Promise<RawInferenceResult> {
     let batch: Record<string, any> = this.processor.prepareBatch(texts, entities);
     let feeds: Record<string, ort.Tensor> = this.prepareInputs(batch);
-    const results: Record<string, ort.Tensor> = await this.onnxWrapper.run(feeds);
-    const modelOutput: any = results["logits"].data;
+    feeds = this.processFeedsWithConfig(feeds, inputConfig);
+    const results: Record<string, ort.Tensor> = await this.onnxWrapper.run(feeds, options);
+    const modelOutput: any = await results["logits"].getData(true);
     // const modelOutput = results.logits.data as number[];
 
     const batchSize: number = batch.batchTokens.length;
@@ -90,6 +136,8 @@ export class SpanModel extends Model {
     multiLabel: boolean = false,
     batch_size: number = 4,
     max_words: number = 512,
+    inputConfig: ModelInputSettings = {},
+    options: IONNXSettings["runOptions"] = {},
   ): Promise<RawInferenceResult> {
     const {
       idToClass,
@@ -162,8 +210,9 @@ export class SpanModel extends Model {
       };
 
       let feeds: Record<string, ort.Tensor> = this.prepareInputs(batch);
-      const results: Record<string, ort.Tensor> = await this.onnxWrapper.run(feeds);
-      const modelOutput: number[] = results["logits"].data;
+      feeds = this.processFeedsWithConfig(feeds, inputConfig);
+      const results: Record<string, ort.Tensor> = await this.onnxWrapper.run(feeds, options);
+      const modelOutput = (await results["logits"].getData(true)) as unknown as number[];
       // const modelOutput = results.logits.data as number[];
 
       const batchSize: number = batch.batchTokens.length;
@@ -232,7 +281,7 @@ export class TokenModel extends Model {
     let batch: Record<string, any> = this.processor.prepareBatch(texts, entities);
     let feeds: Record<string, ort.Tensor> = this.prepareInputs(batch);
     const results: Record<string, ort.Tensor> = await this.onnxWrapper.run(feeds);
-    const modelOutput: any = results["logits"].data;
+    const modelOutput: any = await results["logits"].getData(true);
     // const modelOutput = results.logits.data as number[];
 
     const batchSize: number = batch.batchTokens.length;
@@ -329,7 +378,7 @@ export class TokenModel extends Model {
 
       let feeds: Record<string, ort.Tensor> = this.prepareInputs(batch);
       const results: Record<string, ort.Tensor> = await this.onnxWrapper.run(feeds);
-      const modelOutput: number[] = results["logits"].data;
+      const modelOutput = (await results["logits"].getData(true)) as unknown as number[];
       // const modelOutput = results.logits.data as number[];
 
       const batchSize: number = batch.batchTokens.length;

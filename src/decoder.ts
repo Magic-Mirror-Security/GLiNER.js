@@ -115,7 +115,9 @@ export class SpanDecoder extends BaseDecoder {
 
       if (
         prob >= threshold &&
+        batchWordsStartIdx[batch] &&
         startToken < batchWordsStartIdx[batch].length &&
+        batchWordsEndIdx[batch] &&
         endToken < batchWordsEndIdx[batch].length
       ) {
         let globalBatch: number = batchIds[batch];

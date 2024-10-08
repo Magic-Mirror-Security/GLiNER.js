@@ -1,5 +1,5 @@
 import { AutoTokenizer, env } from "@xenova/transformers";
-import { SpanModel, TokenModel } from "./model";
+import { ModelInputSettings, SpanModel, TokenModel } from "./model";
 import { WhitespaceTokenSplitter, SpanProcessor, TokenProcessor } from "./processor";
 import { SpanDecoder, TokenDecoder } from "./decoder";
 import { IONNXSettings, ONNXWrapper } from "./ONNXWrapper";
@@ -23,6 +23,12 @@ export interface IInference {
   flatNer?: boolean;
   threshold?: number;
   multiLabel?: boolean;
+
+  // Input configuration
+  inputConfig: ModelInputSettings;
+
+  // Expose options for running
+  options?: IONNXSettings["runOptions"];
 }
 
 export type RawInferenceResult = [string, number, number, string, number][][];
@@ -80,29 +86,51 @@ export class Gliner {
   async inference({
     texts,
     entities,
+    inputConfig,
     flatNer = true,
     threshold = 0.5,
     multiLabel = false,
+    options = {},
   }: IInference): Promise<InferenceResultMultiple> {
     if (!this.model) {
       throw new Error("Model is not initialized. Call initialize() first.");
     }
 
-    const result = await this.model.inference(texts, entities, flatNer, threshold, multiLabel);
+    const result = await this.model.inference(
+      texts,
+      entities,
+      flatNer,
+      threshold,
+      multiLabel,
+      inputConfig,
+      options,
+    );
     return this.mapRawResultToResponse(result);
   }
 
   async inference_with_chunking({
     texts,
     entities,
+    inputConfig,
     flatNer = false,
     threshold = 0.5,
+    options = {},
   }: IInference): Promise<InferenceResultMultiple> {
     if (!this.model) {
       throw new Error("Model is not initialized. Call initialize() first.");
     }
 
-    const result = await this.model.inference_with_chunking(texts, entities, flatNer, threshold);
+    const result = await this.model.inference_with_chunking(
+      texts,
+      entities,
+      flatNer,
+      threshold,
+      false,
+      4,
+      512,
+      inputConfig,
+      options,
+    );
     return this.mapRawResultToResponse(result);
   }
 

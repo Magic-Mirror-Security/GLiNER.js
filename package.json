@@ -1,20 +1,20 @@
 {
   "name": "gliner",
-  "version": "0.0.17",
-  "description": "This is a GLiNER inference engine",
-  "main": "./dist/index.cjs",
+  "version": "0.0.17-ext",
+  "description": "This is a GLiNER inference engine modified for safe usage in Web Extensions",
+  "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ingvarstep/GLiNER.js"
+    "url": "https://github.com/Magic-Mirror-Security/GLiNER.js"
   },
   "keywords": [
     "GLiNER",
     "inference",
     "engine"
   ],
-  "author": "Your Name",
+  "author": "Magic Mirror Security",
   "license": "MIT",
   "files": [
     "package.json",
@@ -33,7 +33,7 @@
     "lint:fix": "prettier --write src/**/*.ts"
   },
   "dependencies": {
-    "@xenova/transformers": "^2.17.2",
+    "@xenova/transformers": "link:../transformers.js",
     "onnxruntime-web": "^1.19.2"
   },
   "devDependencies": {
@@ -42,5 +42,6 @@
     "tsup": "^8.2.4",
     "typescript": "^5.6.2"
   },
-  "private": false
+  "private": false,
+  "packageManager": "pnpm@9.12.1"
 }
